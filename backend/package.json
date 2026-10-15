@@ -1,0 +1,7 @@
+{
+  "name": "@setfluence/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Node + TypeScript API: QlooService, constraint solver, agent loop (Phases 1–3)."
+}

@@ -1,0 +1,24 @@
+{
+  "name": "setfluence",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agentic, evidence-backed festival sponsorship planning powered by Qloo cultural intelligence.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "phase0": "node scripts/phase0/run.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,0 +1,35 @@
+# --- Secrets -------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# --- Dependencies --------------------------------------------------------
+node_modules/
+.pnpm-store/
+
+# --- Build output --------------------------------------------------------
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# --- Runtime / cache -----------------------------------------------------
+.cache/
+tmp/
+*.log
+npm-debug.log*
+
+# Raw per-run Qloo captures (the curated latest capture in fixtures/ IS committed)
+fixtures/runs/
+
+# --- OS / editor ---------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+docs/*
