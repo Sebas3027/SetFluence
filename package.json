@@ -15,7 +15,10 @@
   ],
   "scripts": {
     "phase0": "node scripts/phase0/run.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspace=frontend",
+    "start": "npm run start --workspace=backend",
+    "test": "node --test backend/src/solver/planner.test.ts backend/src/agent/orchestrator.test.ts backend/src/index.test.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

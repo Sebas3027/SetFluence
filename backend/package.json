@@ -3,5 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Node + TypeScript API: QlooService, constraint solver, agent loop (Phases 1–3)."
+  "description": "Node + TypeScript API: QlooService, constraint solver, agent loop.",
+  "scripts": {
+    "dev": "node --watch src/index.ts",
+    "start": "node src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@google/genai": "^1.0.0",
+    "@setfluence/shared": "*",
+    "fastify": "^5.2.0",
+    "zod": "^3.24.0"
+  }
 }

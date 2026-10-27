@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Domain types shared by backend and frontend (PROJECT_PLAN §1.2).",
+  "description": "Domain types shared by backend and frontend.",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
   "exports": {
     ".": "./src/index.ts"
   }
