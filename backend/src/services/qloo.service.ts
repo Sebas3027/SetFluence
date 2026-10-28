@@ -168,11 +168,9 @@ export function inferBrandCategoryFromQlooTags(
 }
 
 /**
- * Computes positive shortlist fit points in (0.50, 1.00] for a shortlist ranking of returned candidates.
- * Uses a positive rank floor (0.55..1.00) blended with Qloo's raw affinity when present so that
- * even the lowest-ranked brand on a pre-qualified shortlist reflects its positive cultural fit
- * (never a misleading 0.000), while preserving strict rank order.
- * Candidates not returned by Qloo remain absent from the map (treated as unknown, never last place).
+ * Computes 1-based shortlist ranks (#1..#k) and assigns Qloo's raw affinity score directly
+ * (falling back to positional rank only if an entity returned without a numeric affinity).
+ * Candidates not returned by Qloo remain absent from the map (treated as unknown, never zero).
  */
 export function computeOrdinalRanking(
   ranked: Array<{ id: string; affinity: number | null }>,
@@ -183,8 +181,8 @@ export function computeOrdinalRanking(
   if (k === 1) {
     const raw = ranked[0]!.affinity;
     const singleScore =
-      raw !== null && raw > 0
-        ? Number((0.65 * 1.0 + 0.35 * Math.min(1, raw)).toFixed(4))
+      raw !== null && raw >= 0
+        ? Number(Math.min(1, raw).toFixed(4))
         : 1.0;
     out.set(ranked[0]!.id, { rank: 1, points: singleScore });
     return out;
@@ -202,13 +200,11 @@ export function computeOrdinalRanking(
       j++;
     }
     const avgPos = (i + j) / 2;
-    // Positive rank curve from 1.000 (#1) down to 0.580 (#k) so shortlisted candidates never hit 0.000
-    const rankCurve = 1 - (avgPos / (k - 1)) * 0.42;
-    const blended =
-      currentAffinity !== null && currentAffinity > 0
-        ? 0.65 * rankCurve + 0.35 * Math.min(1, currentAffinity)
-        : rankCurve;
-    const points = Number(blended.toFixed(4));
+    const rawOrFallback =
+      currentAffinity !== null && currentAffinity >= 0
+        ? Math.min(1, currentAffinity)
+        : 1 - avgPos / (k - 1);
+    const points = Number(rawOrFallback.toFixed(4));
     const rank = i + 1;
     for (let p = i; p <= j; p++) {
       out.set(ranked[p]!.id, { rank, points });

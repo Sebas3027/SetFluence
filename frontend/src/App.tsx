@@ -409,16 +409,9 @@ export function App() {
     (a) => a.stageId === activeStageBrief.id,
   );
 
-  const hasLegacyZeroScore = Boolean(
-    activePlan?.matrix.some((m) =>
-      m.artistEvidence.some((e) => e.ordinalPoints === 0),
-    ),
-  );
-
   function normalizeFit(score: number | null | undefined): number | null {
     if (score === null || score === undefined) return null;
-    if (!hasLegacyZeroScore) return score;
-    return Math.round((0.58 + 0.42 * score) * 1000) / 1000;
+    return score;
   }
 
   const hasExplicitStageTargets = Boolean(

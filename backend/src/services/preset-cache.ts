@@ -216,6 +216,7 @@ export const DEFAULT_PRESET_BRIEFS: FestivalBrief[] = [
  */
 export function computeBriefFingerprint(brief: FestivalBrief): string {
   const canonical = {
+    scoringVersion: "raw-qloo-v2",
     stages: brief.stages.map((s) => ({
       id: s.id,
       name: s.name.trim(),

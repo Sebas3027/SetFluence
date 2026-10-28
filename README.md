@@ -14,23 +14,23 @@ SetFluence is designed as a desktop sponsorship studio with persistent left-hand
    - **Neon Pulse Electronic** (Progressive Synth, Club, and Vinyl Chillout stages with energy drink exclusivity)
    - **Constraint Stress-Test** (Exclusivity + stage-level category restrictions)
 2. Optionally open **Festival Brief & Rules** in the sidebar to customize stage lineups, physical capacity tiers (`Main Headliner Arena`, `Secondary Stage`, `Intimate Tent & Lounge`), footprints (`compact`, `medium`, `large`), or add rules via the structured **3-Part Commercial Rule Builder** (*Rule Type* $\to$ *Category / Brand* $\to$ *Stage or Festival Scope*).
-3. Click **Run Qloo Match** in the sidebar. SetFluence resolves the performing artists against Qloo, discovers stage-specific candidate brands for each stage's lineup, computes shortlist fit scores (`0.580–1.000 Fit`), and solves the optimal festival-wide sponsor allocation (`v1`).
+3. Click **Run Qloo Match** in the sidebar (or select any preset to view its pre-warmed live Qloo match immediately). SetFluence resolves the performing artists against Qloo, discovers 3 stage-tailored candidate brands per stage across all performing artists, evaluates Qloo artist-to-brand affinity scores, and routes stage sponsors under your active commercial rules (`v1`).
 
 ### Step 2 — Inspect Stages & Run Live What-If Simulations
 Click any stage under **Stages (Focus View)** in the left sidebar to open its master-detail workspace:
-- **Recommended Stage Partner & Standby Backup:** Shows the winning primary sponsor, stage fit score (`0.580–1.000 Fit`), artist coverage ratio (`3/3 artists covered`), pre-vetted standby sponsor, and cross-stage placement rationale.
-- **Interactive Right-Hand Brand Leaderboard:** Lists the candidate brands evaluated for this specific stage (combining the organizer's cross-stage target pool with Qloo's stage-specific discoveries). **Click any brand in the leaderboard** to immediately compare it head-to-head against the stage winner across every performing artist.
-- **Artist-by-Artist Qloo Affinity Proof:** Visualizes how each artist on the stage ranks the winning sponsor versus the selected challenger (`#1/7`, `+0.112 Fit` lead), backed by live Qloo signals.
-- **Instant Stage Simulations:** Click **Lock Deal**, **Simulate Drop-Out**, or **Restrict [Category]** directly on the stage card. A live recalculation banner tracks the bounded agent as it re-runs the deterministic solver (and automatically invokes `investigateUnfilledStage` to discover a new Qloo replacement brand if a stage becomes unfilled), producing a new plan version (`v2`, `v3`, ...) with a full diff log.
-- **Suggested Activation Directions (Brainstorm Spec):** Translates the stage's physical envelope and Qloo cultural/lifestyle tags into exploratory creative directions, complete with **3 selectable On-Site Fan Immersion Options** (`Option 1`, `Option 2`, `Option 3`) and a commercial verification checklist.
+- **Recommended Stage Partner & Standby Backup:** Shows the winning primary sponsor, mean Qloo stage affinity score, artist coverage ratio (`3/3 artists covered`), pre-vetted standby sponsor, and cross-stage placement rationale.
+- **Interactive Right-Hand Brand Leaderboard:** Lists the candidate brands evaluated for this specific stage (combining the organizer's 5 target brands with Qloo's 3 stage discoveries). **Click any brand in the leaderboard** to compare it head-to-head against the stage winner across every performing artist, or click **Lock [Brand] to Stage** to override the recommendation.
+- **Artist-by-Artist Qloo Affinity Proof:** Visualizes how each artist on the stage ranks the winning sponsor versus the selected challenger (`#1/8`, `+0.062 Fit` lead), backed by direct Qloo affinity signals.
+- **Instant Stage Simulations:** Click **Lock Deal**, **Simulate Drop-Out**, or **Restrict [Category]** directly on the stage card. A live **Autonomous Agent Revision** banner tracks the agent as it re-routes stage sponsors under your rules (or invokes `investigateUnfilledStage` to discover a new Qloo replacement brand if a stage becomes unfilled), producing a new plan version (`v2`, `v3`, ...) with a full diff log.
+- **Suggested Activation Directions (Brainstorm Spec):** Translates the stage's physical envelope, **Qloo Cross-Domain Touchstones (`Film · TV · Gaming`)**, and lifestyle tags into exploratory creative directions, complete with **3 selectable On-Site Fan Immersion Options** (`Option 1`, `Option 2`, `Option 3`) and a commercial verification checklist.
 
 ### Step 3 — Explore the 2-Part Brand × Stage Matrix
 Click **Brand × Stage Matrix** in the left sidebar to inspect festival-wide routing at a glance:
 - **Part 1 — Cross-Stage Exclusivity & Routing Matrix:** Displays the organizer's shared target brands across all 3 stages (`WINNER`, `STANDBY`, `RULE BLOCKED`, `ELIGIBLE`), making cross-stage category exclusivity trade-offs immediately transparent.
-- **Part 2 — Stage-Tailored Qloo Brand Discoveries:** A 3-column stage grid underneath showing the candidate brands Qloo discovered specifically for each individual stage's artist lineup. Clicking any card jumps straight to that stage's head-to-head comparison.
+- **Part 2 — Stage-Tailored Qloo Brand Discoveries:** A 3-column stage grid underneath showing the 3 candidate brands Qloo discovered specifically for each individual stage's artist lineup. Clicking any card jumps straight to that stage's head-to-head comparison.
 
 ### Step 4 — Compare LLM vs. Qloo Benchmark, Audit Trail & Print 3-Stage Deck
-- **LLM vs. Qloo Benchmark:** Click **LLM vs. Qloo Benchmark** in the left sidebar to run a controlled side-by-side comparison (*Condition A: Ungrounded LLM + Deterministic Solver* vs. *Condition B: SetFluence + Qloo Cultural AI + Deterministic Solver*) on the exact same brief and candidate pool—isolating how empirical Qloo artist affinities overturn generic genre stereotypes and provide `100%` claim-to-source traceability.
+- **LLM vs. Qloo Benchmark:** Click **LLM vs. Qloo Benchmark** in the left sidebar to run a controlled side-by-side comparison (*Condition A: Ungrounded LLM + Commercial Rules* vs. *Condition B: SetFluence + Qloo Cultural AI + Commercial Rules*) on the exact same brief and candidate pool—isolating how empirical Qloo artist affinities overturn generic genre stereotypes.
 - **Qloo & Solver Audit:** Inspect the step-by-step tool execution timeline (`resolveLineup`, `discoverBrands`, `evaluateShortlistFit`, `runPlanner`, `investigateUnfilledStage`) with execution timings and version-over-version allocation diffs.
 - **Print PDF (Full 3-Stage Executive Deck) & Markdown Export:** Click **Print PDF** in the sidebar footer from anywhere in the workspace to generate a formatted, multi-page **3-Stage Executive Sponsorship Deck** covering the festival summary table, active commercial rules, and dedicated page-break briefs for all 3 stages.
 
@@ -42,23 +42,22 @@ Click **Brand × Stage Matrix** in the left sidebar to inspect festival-wide rou
 flowchart LR
   Brief["Festival Brief & Rules\n(3 Stages, Artists, Envelopes)"] --> Agent["Bounded Orchestrator\n(backend/src/agent)"]
   Agent -->|1. resolveLineup & discoverBrands| Qloo["Qloo Cultural AI API\n(/v2/insights & /v2/tags)"]
-  Qloo -->|Raw Affinity & Cultural Tags| Scoring["Shortlist Fit Normalizer\n(0.580 - 1.000 Fit Curve)"]
-  Scoring -->|Stage-Targeted Evidence| Solver["Deterministic Constraint Solver\n(backend/src/solver)"]
+  Qloo -->|Direct Qloo Affinity & Cross-Domain Tags| Scoring["Stage Shortlist Evaluator\n(Direct Affinity + Rank #1..#N)"]
+  Scoring -->|Stage-Targeted Evidence| Solver["Commercial Rule Router\n(backend/src/solver)"]
   Solver -->|Unfilled Stage Detected| Agent
-  Solver -->|Optimal 3-Stage Allocation| BriefSynth["Suggestive Activation Spec\n(3 Fan Immersion Options)"]
+  Solver -->|Conflict-Free 3-Stage Allocation| BriefSynth["Suggestive Activation Spec\n(Cross-Domain + 3 Fan Options)"]
   BriefSynth --> UI["SetFluence Studio UI\n(React + Vite + Print Deck)"]
 ```
 
 ### Strict Architectural Separation
 1. **Qloo Cultural Intelligence ([`backend/src/services/qloo.service.ts`](backend/src/services/qloo.service.ts)):**
-   - Resolves artist and brand entities against live Qloo endpoints (`https://hackathon.api.qloo.com`), discovers stage-targeted brand candidates per stage lineup, queries artist-to-brand affinity scores, and retrieves music/lifestyle tags (`/v2/tags`).
-   - Normalizes raw Qloo affinities into positive shortlist fit scores (`0.580–1.000 Fit`) that preserve strict per-artist rank order while reflecting pre-qualified cultural fit.
-2. **Deterministic Constraint Solver ([`backend/src/solver/planner.ts`](backend/src/solver/planner.ts) & [`constraints.ts`](backend/src/solver/constraints.ts)):**
-   - All mathematical and commercial constraints—**Festival-Wide Category Exclusivity**, **Stage/Festival Category Restrictions**, **Locked Stage Placements**, **Sponsor Availability**, and **Stage Physical Envelopes**—are evaluated 100% deterministically in TypeScript. The LLM never guesses or overrides constraint math.
-   - Performs global combinatorial optimization across all stages simultaneously, ensuring no brand is double-booked as primary sponsor and minimizing allocation churn during revisions.
+   - Resolves artist and brand entities against live Qloo endpoints (`https://hackathon.api.qloo.com`), discovers 3 top-affinity brand candidates per stage across all performing artists on that stage, queries direct artist-to-brand affinity scores, and retrieves cross-domain touchstones (`movie`, `tv_show`, `video_game`) and lifestyle tags (`/v2/tags`).
+2. **Commercial Rule Guardrails & Cross-Stage Routing ([`backend/src/solver/planner.ts`](backend/src/solver/planner.ts) & [`constraints.ts`](backend/src/solver/constraints.ts)):**
+   - Keeps commercial contract rules (**Festival-Wide Category Exclusivity**, **Stage/Festival Category Restrictions**, **Locked Stage Placements**, **Sponsor Availability**, and **Stage Physical Envelopes**) in deterministic TypeScript rather than prompt text so an LLM never hallucinates or forgets an exclusivity constraint.
+   - Evaluates cross-stage combinations by maximizing total stage affinity (`Stage 1 + Stage 2 + Stage 3`), which naturally compares the intra-stage drop-off (`#1` vs. `#2`) when two stages compete for the same sponsor.
 3. **Bounded Research, Recovery & Benchmark Engine ([`backend/src/agent/orchestrator.ts`](backend/src/agent/orchestrator.ts) & [`benchmark.ts`](backend/src/agent/benchmark.ts)):**
    - Orchestrates a bounded tool loop (`maxSteps = 8`) with deterministic completion guarantees.
-   - Includes a controlled benchmark runner (`POST /api/plans/benchmark`) that evaluates an ungrounded LLM baseline through the exact same `runPlanner` solver to prove the empirical value of Qloo grounding.
+   - Includes a controlled benchmark runner (`POST /api/plans/benchmark`) that evaluates an ungrounded LLM baseline through the exact same commercial rule router to demonstrate the value of Qloo grounding.
 
 ### Repository Layout
 
