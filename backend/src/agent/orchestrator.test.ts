@@ -9,6 +9,7 @@ import type {
   ResolvedEntity,
 } from "@setfluence/shared";
 import { computeOrdinalRanking, QlooService } from "../services/qloo.service.ts";
+import { runControlledBenchmark } from "./benchmark.ts";
 import { AgentOrchestrator } from "./orchestrator.ts";
 
 class StubQlooService extends QlooService {
@@ -425,4 +426,24 @@ describe("Phase 3 Bounded Agent Research & Recovery Loop", () => {
     assert.ok(v2.unresolvedConflicts.length > 0);
     assert.equal(v2.allocations[1]?.primarySponsor, null);
   });
+
+  it("5. Controlled LLM vs. Qloo benchmark compares both conditions through the identical deterministic solver", async () => {
+    const qloo = new StubQlooService();
+    const orchestrator = new AgentOrchestrator({
+      qlooService: qloo,
+      useLlmToolLoop: false,
+    });
+
+    const v1 = await orchestrator.generateInitialPlan(makeTestBrief());
+    const benchmark = await runControlledBenchmark(v1, {
+      useLiveGemini: false,
+    });
+
+    assert.equal(benchmark.stageComparisons.length, 3);
+    assert.equal(benchmark.metrics.qlooTraceableClaimsPct, 100);
+    assert.equal(benchmark.metrics.ungroundedTraceableClaimsPct, 0);
+    assert.equal(benchmark.metrics.solverConstraintViolationsBoth, 0);
+    assert.ok(benchmark.metrics.qlooStageSpecificDiscoveriesCount > 0);
+  });
 });
+

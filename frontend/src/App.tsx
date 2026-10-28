@@ -5,396 +5,24 @@ import type {
   FestivalBrief,
   PlanVersion,
   SpaceFootprint,
-  StageAllocation,
-  StageBrief,
   StageCapacityTier,
 } from "@setfluence/shared";
 import { generatePlan, revisePlan } from "./api.ts";
 import { AgentTimeline } from "./components/AgentTimeline.tsx";
+import { BenchmarkComparison } from "./components/BenchmarkComparison.tsx";
+import { PrintExecutiveDeck } from "./components/PrintExecutiveDeck.tsx";
 import { SponsorMatrix } from "./components/SponsorMatrix.tsx";
+import { KNOWN_SPONSOR_CATEGORIES, PRESET_BRIEFS } from "./data/presets.ts";
+import {
+  formatCategoryLabel,
+  formatConstraintTypeLabel,
+  formatSourceLabel,
+  formatStageTierLabel,
+  renderMarkdownBrief,
+  resolveFanActivityOptions,
+} from "./utils/formatters.ts";
 
-type ActiveView = "setup" | "stage" | "matrix" | "audit";
-
-const KNOWN_SPONSOR_CATEGORIES: string[] = [
-  "footwear",
-  "apparel",
-  "energy_drink",
-  "streaming",
-  "eyewear",
-  "consumer_electronics",
-  "beverage",
-  "automotive",
-  "finance",
-];
-
-const PRESET_BRIEFS: Array<{
-  id: string;
-  label: string;
-  badge: string;
-  brief: FestivalBrief;
-}> = [
-  {
-    id: "preset-horizon-2026",
-    label: "Horizon Multi-Genre",
-    badge: "3 Genres · Apparel Exclusivity",
-    brief: {
-      id: "preset-horizon-2026",
-      name: "Horizon Sound Festival",
-      location: "Austin, TX",
-      stages: [
-        {
-          id: "stage-1",
-          name: "Main Stage",
-          genreLabel: "Indie / Alt Rock",
-          artists: ["Arctic Monkeys", "Tame Impala", "The 1975"],
-          activationFormat: {
-            id: "fmt-pavilion",
-            name: "Flagship Experience Pavilion",
-            requiredSpaceFootprint: "large",
-            noiseLevelCeiling: "moderate",
-            stageTier: "headliner_arena",
-          },
-        },
-        {
-          id: "stage-2",
-          name: "Dance Arena",
-          genreLabel: "Electronic / Dance",
-          artists: ["Calvin Harris", "David Guetta", "Disclosure"],
-          activationFormat: {
-            id: "fmt-immersion",
-            name: "High-Energy Immersion Zone",
-            requiredSpaceFootprint: "medium",
-            noiseLevelCeiling: "loud",
-            stageTier: "secondary_stage",
-          },
-        },
-        {
-          id: "stage-3",
-          name: "Block Party",
-          genreLabel: "Hip-hop / R&B",
-          artists: ["Kendrick Lamar", "Travis Scott", "SZA"],
-          activationFormat: {
-            id: "fmt-studio",
-            name: "Intimate Creator & Listening Studio",
-            requiredSpaceFootprint: "compact",
-            noiseLevelCeiling: "quiet",
-            stageTier: "intimate_tent",
-          },
-        },
-      ],
-      preferredCategories: [
-        "footwear",
-        "apparel",
-        "energy_drink",
-        "streaming",
-        "eyewear",
-        "consumer_electronics",
-      ],
-      suppliedBrands: [
-        { name: "Converse", category: "footwear", available: true },
-        { name: "Nike", category: "apparel", available: true },
-        { name: "Adidas", category: "apparel", available: true },
-        { name: "Red Bull", category: "energy_drink", available: true },
-        { name: "Spotify", category: "streaming", available: true },
-      ],
-      constraints: [
-        {
-          id: "excl-apparel-festival",
-          type: "category_exclusivity",
-          scope: "festival",
-          category: "apparel",
-          active: true,
-          reason: "At most one primary apparel sponsor across the festival.",
-        },
-      ],
-    },
-  },
-  {
-    id: "preset-neon-pulse",
-    label: "Neon Pulse Electronic",
-    badge: "Electronic / Indie Synth",
-    brief: {
-      id: "preset-neon-pulse",
-      name: "Neon Pulse Electronic Weekender",
-      location: "Detroit, MI",
-      stages: [
-        {
-          id: "stage-1",
-          name: "Cyber Dome",
-          genreLabel: "Progressive & Synth",
-          artists: ["Disclosure", "Tame Impala", "Calvin Harris"],
-          activationFormat: {
-            id: "fmt-cyber",
-            name: "Audio-Visual Synth Pavilion",
-            requiredSpaceFootprint: "large",
-            noiseLevelCeiling: "loud",
-            stageTier: "headliner_arena",
-          },
-        },
-        {
-          id: "stage-2",
-          name: "Warehouse 09",
-          genreLabel: "Big Room & Club",
-          artists: ["David Guetta", "Travis Scott", "Calvin Harris"],
-          activationFormat: {
-            id: "fmt-bunker",
-            name: "Sub-Frequency Recharge Bunker",
-            requiredSpaceFootprint: "medium",
-            noiseLevelCeiling: "loud",
-            stageTier: "secondary_stage",
-          },
-        },
-        {
-          id: "stage-3",
-          name: "Vinyl Sanctuary",
-          genreLabel: "Alt & R&B Chillout",
-          artists: ["SZA", "The 1975", "Arctic Monkeys"],
-          activationFormat: {
-            id: "fmt-sanctuary",
-            name: "Analog Vinyl Listening Lounge",
-            requiredSpaceFootprint: "compact",
-            noiseLevelCeiling: "quiet",
-            stageTier: "intimate_tent",
-          },
-        },
-      ],
-      preferredCategories: [
-        "energy_drink",
-        "streaming",
-        "consumer_electronics",
-        "footwear",
-        "eyewear",
-      ],
-      suppliedBrands: [
-        { name: "Red Bull", category: "energy_drink", available: true },
-        { name: "Monster Energy", category: "energy_drink", available: true },
-        { name: "Spotify", category: "streaming", available: true },
-        { name: "Samsung", category: "consumer_electronics", available: true },
-        { name: "Ray-Ban", category: "eyewear", available: true },
-      ],
-      constraints: [
-        {
-          id: "excl-energy-festival",
-          type: "category_exclusivity",
-          scope: "festival",
-          category: "energy_drink",
-          active: true,
-          reason:
-            "At most one primary energy_drink sponsor across the festival.",
-        },
-      ],
-    },
-  },
-  {
-    id: "preset-conflict-stress",
-    label: "Constraint Stress-Test",
-    badge: "Exclusivity + Stage Bans",
-    brief: {
-      id: "preset-conflict-stress",
-      name: "Apex Multi-Constraint Showcase",
-      location: "Chicago, IL",
-      stages: [
-        {
-          id: "stage-1",
-          name: "Main Stage",
-          genreLabel: "Indie / Alt Rock",
-          artists: ["Arctic Monkeys", "Tame Impala", "The 1975"],
-          activationFormat: {
-            id: "fmt-pavilion",
-            name: "Flagship Experience Pavilion",
-            requiredSpaceFootprint: "large",
-            noiseLevelCeiling: "moderate",
-            stageTier: "headliner_arena",
-          },
-        },
-        {
-          id: "stage-2",
-          name: "Dance Arena",
-          genreLabel: "Electronic / Dance",
-          artists: ["Calvin Harris", "David Guetta", "Disclosure"],
-          activationFormat: {
-            id: "fmt-immersion",
-            name: "High-Energy Immersion Zone",
-            requiredSpaceFootprint: "medium",
-            noiseLevelCeiling: "loud",
-            stageTier: "secondary_stage",
-          },
-        },
-        {
-          id: "stage-3",
-          name: "Block Party",
-          genreLabel: "Hip-hop / R&B",
-          artists: ["Kendrick Lamar", "Travis Scott", "SZA"],
-          activationFormat: {
-            id: "fmt-studio",
-            name: "Intimate Creator & Listening Studio",
-            requiredSpaceFootprint: "compact",
-            noiseLevelCeiling: "quiet",
-            stageTier: "intimate_tent",
-          },
-        },
-      ],
-      preferredCategories: [
-        "footwear",
-        "apparel",
-        "energy_drink",
-        "streaming",
-        "eyewear",
-      ],
-      suppliedBrands: [
-        { name: "Nike", category: "apparel", available: true },
-        { name: "Adidas", category: "apparel", available: true },
-        { name: "Converse", category: "footwear", available: true },
-        { name: "Red Bull", category: "energy_drink", available: true },
-        { name: "Monster Energy", category: "energy_drink", available: true },
-      ],
-      constraints: [
-        {
-          id: "excl-apparel-festival",
-          type: "category_exclusivity",
-          scope: "festival",
-          category: "apparel",
-          active: true,
-          reason: "At most one primary apparel sponsor across the festival.",
-        },
-        {
-          id: "ban-energy-stage-1",
-          type: "category_ban",
-          scope: "stage",
-          stageId: "stage-1",
-          category: "energy_drink",
-          active: true,
-          reason: "Banned category energy_drink on Main Stage.",
-        },
-      ],
-    },
-  },
-];
-
-function formatCategoryLabel(category: string): string {
-  return category
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (ch) => ch.toUpperCase());
-}
-
-function formatSourceLabel(source: string): string {
-  if (source === "supplied") return "Organizer Shortlist";
-  if (source === "discovered") return "Stage Qloo Match";
-  return "Organizer + Qloo";
-}
-
-function formatStageTierLabel(tier?: StageCapacityTier, stageId?: string): string {
-  const effective =
-    tier ??
-    (stageId === "stage-1"
-      ? "headliner_arena"
-      : stageId === "stage-2"
-        ? "secondary_stage"
-        : "intimate_tent");
-  if (effective === "headliner_arena") return "Main Headliner Arena (25k+ cap)";
-  if (effective === "secondary_stage") return "Secondary Stage (8k–15k cap)";
-  return "Intimate Tent & Lounge (2k–5k cap)";
-}
-
-function formatConstraintTypeLabel(type: Constraint["type"]): string {
-  switch (type) {
-    case "category_exclusivity":
-      return "Category Exclusivity";
-    case "category_ban":
-      return "Category Restriction";
-    case "locked_placement":
-      return "Locked Placement";
-    case "availability":
-      return "Sponsor Availability";
-    case "format_mismatch":
-      return "Zone Format Rule";
-  }
-}
-
-function resolveFanActivityOptions(
-  stage: StageBrief,
-  alloc: StageAllocation,
-): string[] {
-  const existing = alloc.activationBrief?.fanActivityOptions;
-  if (existing && existing.length >= 3) {
-    return existing;
-  }
-
-  const brandName = alloc.primarySponsor?.name ?? "Partner";
-  const categoryLabel = alloc.primarySponsor
-    ? formatCategoryLabel(alloc.primarySponsor.category).toLowerCase()
-    : "lifestyle";
-  const formatName =
-    alloc.activationBrief?.formatCompliance.formatName ??
-    stage.activationFormat?.name ??
-    "Interactive Fan Zone";
-  const footprint =
-    alloc.activationBrief?.formatCompliance.requiredSpaceFootprint ??
-    stage.activationFormat?.requiredSpaceFootprint ??
-    "10x10m";
-  const topTags =
-    alloc.activationBrief?.culturalTagsUsed.slice(0, 2).join(" & ") ||
-    stage.genreLabel;
-  const artistList = stage.artists.slice(0, 2).join(" and ");
-
-  return [
-    `Interactive ${formatName} (${footprint}): Could invite ${stage.name} fans between ${artistList} sets to customize limited-edition ${brandName} ${categoryLabel} pieces inspired by ${topTags} motifs.`,
-    `Artist-Curated Lounge & Listening Drop: Might host an intimate ${brandName} pre-set warm-up session or visual photo studio celebrating ${stage.genreLabel} culture with instant digital keepsakes.`,
-    `Crowd-Triggered Stage Moment: Could pair ${brandName} on-site check-ins at ${stage.name} with exclusive viewing-deck upgrades, custom festival merch drops, or post-set artist playlists.`,
-  ];
-}
-
-function renderMarkdownBrief(plan: PlanVersion): string {
-  const lines: string[] = [
-    `# ${plan.briefSnapshot.name} — Sponsorship Partnership Deck (v${plan.versionNumber})`,
-    `- **Location:** ${plan.briefSnapshot.location}`,
-    `- **Generated At:** ${plan.createdAt}`,
-    `- **Summary:** ${plan.agentSummary}`,
-    ``,
-    `> Cultural scores represent *shortlist fit scores* (0.580–1.000 Fit), combining Qloo artist-to-brand affinity with stage shortlist rank.`,
-    ``,
-  ];
-
-  for (const alloc of plan.allocations) {
-    const stageBrief =
-      plan.briefSnapshot.stages.find((s) => s.id === alloc.stageId) ??
-      plan.briefSnapshot.stages[0]!;
-    lines.push(`## ${alloc.stageName}`);
-    lines.push(
-      `- **Primary Partner:** ${alloc.primarySponsor ? `${alloc.primarySponsor.name} (${formatCategoryLabel(alloc.primarySponsor.category)})` : "UNFILLED"}`,
-    );
-    lines.push(
-      `- **Standby Partner:** ${alloc.alternativeSponsor ? `${alloc.alternativeSponsor.name} (${formatCategoryLabel(alloc.alternativeSponsor.category)})` : "None"}`,
-    );
-    lines.push(
-      `- **Stage Fit Score:** ${alloc.relativeFitScore !== null ? `${alloc.relativeFitScore.toFixed(3)} Fit` : "N/A"} (${alloc.supportedArtistsCount}/${alloc.totalStageArtistsCount} artists covered)`,
-    );
-    if (alloc.activationBrief) {
-      lines.push(
-        `- **Suggested Activation Direction:** ${alloc.activationBrief.experienceTitle}`,
-      );
-      lines.push(
-        `  - *Overview:* ${alloc.activationBrief.visitorExperience}`,
-      );
-      const fanOptions = resolveFanActivityOptions(stageBrief, alloc);
-      fanOptions.forEach((opt, idx) => {
-        lines.push(`  - *Option ${idx + 1}:* ${opt}`);
-      });
-      lines.push(`  - *Partner Role:* ${alloc.activationBrief.sponsorRole}`);
-      if (alloc.activationBrief.stageTradeoffSummary) {
-        lines.push(
-          `  - *Cross-Stage Fit:* ${alloc.activationBrief.stageTradeoffSummary}`,
-        );
-      }
-    }
-    lines.push(
-      `- **Commercial Next Step:** ${alloc.unansweredCommercialQuestion}`,
-    );
-    lines.push(``);
-  }
-
-  return lines.join("\n");
-}
+type ActiveView = "setup" | "stage" | "matrix" | "benchmark" | "audit";
 
 export function App() {
   const [brief, setBrief] = useState<FestivalBrief>(PRESET_BRIEFS[0]!.brief);
@@ -1093,6 +721,18 @@ export function App() {
 
             <button
               type="button"
+              className={`sidebar-nav-item ${activeView === "benchmark" ? "active" : ""}`}
+              disabled={!activePlan}
+              onClick={() => setActiveView("benchmark")}
+            >
+              <span className="nav-item-label">LLM vs. Qloo Benchmark</span>
+              {activePlan && (
+                <span className="sidebar-pill-neutral">A/B</span>
+              )}
+            </button>
+
+            <button
+              type="button"
               className={`sidebar-nav-item ${activeView === "audit" ? "active" : ""}`}
               disabled={!activePlan}
               onClick={() => setActiveView("audit")}
@@ -1162,6 +802,8 @@ export function App() {
               {activeView === "stage" &&
                 `${activeStageBrief.name} (${activeStageBrief.genreLabel})`}
               {activeView === "matrix" && "Brand × Stage Comparison Matrix"}
+              {activeView === "benchmark" &&
+                "Controlled LLM vs. Qloo Grounding Benchmark"}
               {activeView === "audit" && "Qloo API & Solver Audit Log"}
             </strong>
 
@@ -2229,7 +1871,22 @@ export function App() {
         )}
 
         {/* ===================================================================
-            VIEW 4: QLOO & SOLVER AUDIT LOG
+            VIEW 4: CONTROLLED LLM VS. QLOO BENCHMARK
+           =================================================================== */}
+        {activeView === "benchmark" && activePlan && (
+          <div className="workspace-scroll-pane">
+            <BenchmarkComparison
+              plan={activePlan}
+              onInspectStage={(stageId) => {
+                setSelectedStageId(stageId);
+                setActiveView("stage");
+              }}
+            />
+          </div>
+        )}
+
+        {/* ===================================================================
+            VIEW 5: QLOO & SOLVER AUDIT LOG
            =================================================================== */}
         {activeView === "audit" && activePlan && (
           <div className="workspace-scroll-pane">
@@ -2246,339 +1903,10 @@ export function App() {
             PRINT-ONLY EXECUTIVE SPONSORSHIP DECK (ALL 3 STAGES + SUMMARY)
            =================================================================== */}
         {activePlan && (
-          <section
-            className="print-only-executive-deck"
-            aria-label="Printable 3-Stage Executive Sponsorship Deck"
-          >
-            {/* Deck Header / Executive Summary */}
-            <header className="print-deck-header">
-              <div className="print-deck-brand-row">
-                <div className="print-logo-box">
-                  <svg
-                    width="36"
-                    height="36"
-                    viewBox="0 0 32 32"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <rect width="32" height="32" rx="8" fill="#18181B" />
-                    <rect
-                      x="6"
-                      y="7"
-                      width="11"
-                      height="11"
-                      rx="3.5"
-                      fill="#A7F3D0"
-                      fillOpacity="0.9"
-                    />
-                    <rect
-                      x="15"
-                      y="7"
-                      width="11"
-                      height="11"
-                      rx="3.5"
-                      fill="#BAE6FD"
-                      fillOpacity="0.9"
-                    />
-                    <rect
-                      x="10.5"
-                      y="14"
-                      width="11"
-                      height="11"
-                      rx="3.5"
-                      fill="#DDD6FE"
-                      fillOpacity="0.94"
-                    />
-                    <circle cx="16" cy="15.5" r="2.2" fill="#18181B" />
-                  </svg>
-                  <div>
-                    <strong>SetFluence Sponsorship Studio</strong>
-                    <span>
-                      Qloo Cultural AI + Deterministic Constraint Solver
-                    </span>
-                  </div>
-                </div>
-                <div className="print-deck-meta">
-                  <strong>Plan v{activePlan.versionNumber}</strong>
-                  <span>{activePlan.briefSnapshot.location}</span>
-                </div>
-              </div>
-
-              <h1>
-                {activePlan.briefSnapshot.name} — 3-Stage Executive Partnership
-                Deck
-              </h1>
-              <p className="print-deck-summary">{activePlan.agentSummary}</p>
-
-              {/* Cross-Stage Allocation Overview Table */}
-              <table className="print-summary-table">
-                <thead>
-                  <tr>
-                    <th>Stage & Capacity Tier</th>
-                    <th>Lineup & Genre</th>
-                    <th>Recommended Partner</th>
-                    <th>Stage Fit Score</th>
-                    <th>Standby Backup</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activePlan.briefSnapshot.stages.map((st) => {
-                    const alloc = activePlan.allocations.find(
-                      (a) => a.stageId === st.id,
-                    );
-                    const fit = normalizeFit(alloc?.relativeFitScore ?? null);
-                    return (
-                      <tr key={st.id}>
-                        <td>
-                          <strong>{st.name}</strong>
-                          <br />
-                          <small>
-                            {formatStageTierLabel(
-                              st.activationFormat?.stageTier,
-                              st.id,
-                            )}
-                          </small>
-                        </td>
-                        <td>
-                          <strong>{st.genreLabel}</strong>
-                          <br />
-                          <small>{st.artists.join(", ")}</small>
-                        </td>
-                        <td>
-                          {alloc?.primarySponsor ? (
-                            <>
-                              <strong>{alloc.primarySponsor.name}</strong>
-                              <br />
-                              <small>
-                                {formatCategoryLabel(
-                                  alloc.primarySponsor.category,
-                                )}{" "}
-                                ·{" "}
-                                {formatSourceLabel(alloc.primarySponsor.source)}
-                              </small>
-                            </>
-                          ) : (
-                            <strong>UNFILLED</strong>
-                          )}
-                        </td>
-                        <td>
-                          <strong>
-                            {fit !== null ? `${fit.toFixed(3)} Fit` : "—"}
-                          </strong>
-                          <br />
-                          <small>
-                            {alloc?.supportedArtistsCount ?? 0}/
-                            {alloc?.totalStageArtistsCount ?? st.artists.length}{" "}
-                            artists
-                          </small>
-                        </td>
-                        <td>
-                          {alloc?.alternativeSponsor ? (
-                            <>
-                              <strong>{alloc.alternativeSponsor.name}</strong>
-                              <br />
-                              <small>
-                                {formatCategoryLabel(
-                                  alloc.alternativeSponsor.category,
-                                )}
-                              </small>
-                            </>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              {/* Active Commercial Rules */}
-              <div className="print-rules-box">
-                <strong>Active Commercial & Exclusivity Rules: </strong>
-                {activePlan.briefSnapshot.constraints
-                  .filter((c) => c.active)
-                  .map((c) => c.reason)
-                  .join(" · ") || "None"}
-              </div>
-            </header>
-
-            {/* Full Stage-by-Stage Briefs (All 3 Stages) */}
-            {activePlan.briefSnapshot.stages.map((st, stageIdx) => {
-              const alloc = activePlan.allocations.find(
-                (a) => a.stageId === st.id,
-              );
-              if (!alloc) return null;
-
-              const stFit = normalizeFit(alloc.relativeFitScore);
-              const runnerUp = alloc.alternativeSponsor;
-              const runnerUpEval = runnerUp
-                ? activePlan.matrix.find(
-                    (m) => m.stageId === st.id && m.brandId === runnerUp.qlooId,
-                  )
-                : undefined;
-              const fanOptions = resolveFanActivityOptions(st, alloc);
-
-              return (
-                <article key={st.id} className="print-stage-page">
-                  <div className="print-stage-header">
-                    <div>
-                      <span className="print-stage-kicker">
-                        STAGE {stageIdx + 1} OF{" "}
-                        {activePlan.briefSnapshot.stages.length} ·{" "}
-                        {st.genreLabel.toUpperCase()}
-                      </span>
-                      <h2>
-                        {st.name} —{" "}
-                        {alloc.primarySponsor
-                          ? `${alloc.primarySponsor.name} Partnership Brief`
-                          : "Unfilled Stage Slot"}
-                      </h2>
-                      <p className="print-stage-sub">
-                        Lineup: <strong>{st.artists.join(", ")}</strong> ·{" "}
-                        {formatStageTierLabel(
-                          st.activationFormat?.stageTier,
-                          st.id,
-                        )}{" "}
-                        · Footprint:{" "}
-                        {st.activationFormat?.requiredSpaceFootprint ??
-                          "10x10m"}
-                      </p>
-                    </div>
-                    <div className="print-stage-score-box">
-                      <span>STAGE FIT SCORE</span>
-                      <strong>
-                        {stFit !== null ? `${stFit.toFixed(3)} Fit` : "—"}
-                      </strong>
-                      <small>
-                        Standby: {runnerUp ? runnerUp.name : "None"}
-                      </small>
-                    </div>
-                  </div>
-
-                  {alloc.activationBrief?.stageTradeoffSummary && (
-                    <div className="print-tradeoff-banner">
-                      <strong>Cross-Stage Placement Rationale:</strong>{" "}
-                      {alloc.activationBrief.stageTradeoffSummary}
-                    </div>
-                  )}
-
-                  {/* Artist-by-Artist Qloo Affinity Table */}
-                  {alloc.artistEvidence.length > 0 && (
-                    <div className="print-section-block">
-                      <h3>
-                        Qloo Artist-by-Artist Affinity Proof (
-                        {alloc.primarySponsor?.name ?? "Winner"} vs.{" "}
-                        {runnerUp?.name ?? "Standby"})
-                      </h3>
-                      <table className="print-artist-table">
-                        <thead>
-                          <tr>
-                            <th>Performing Artist</th>
-                            <th>
-                              {alloc.primarySponsor?.name ?? "Winner"} Fit &
-                              Rank
-                            </th>
-                            <th>
-                              {runnerUp?.name ?? "Standby"} Fit & Rank
-                            </th>
-                            <th>Artist Fit Lead</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {alloc.artistEvidence.map((winEv) => {
-                            const chalEv = runnerUpEval?.artistEvidence.find(
-                              (e) => e.artistId === winEv.artistId,
-                            );
-                            const wScore = normalizeFit(winEv.ordinalPoints);
-                            const cScore = normalizeFit(
-                              chalEv?.ordinalPoints ?? null,
-                            );
-                            const diff =
-                              wScore !== null && cScore !== null
-                                ? wScore - cScore
-                                : null;
-                            return (
-                              <tr key={winEv.id}>
-                                <td>
-                                  <strong>{winEv.artistName}</strong>
-                                </td>
-                                <td>
-                                  <strong>
-                                    {wScore !== null
-                                      ? `${wScore.toFixed(3)} Fit`
-                                      : "—"}
-                                  </strong>{" "}
-                                  {winEv.ordinalRank !== null
-                                    ? `(Rank #${winEv.ordinalRank})`
-                                    : ""}
-                                </td>
-                                <td>
-                                  {cScore !== null
-                                    ? `${cScore.toFixed(3)} Fit`
-                                    : "—"}{" "}
-                                  {chalEv?.ordinalRank !== null &&
-                                  chalEv?.ordinalRank !== undefined
-                                    ? `(Rank #${chalEv.ordinalRank})`
-                                    : ""}
-                                </td>
-                                <td>
-                                  {diff !== null
-                                    ? `${diff >= 0 ? "+" : ""}${diff.toFixed(3)} Fit`
-                                    : "—"}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* Suggested Activation Spec Sheet & 3 Fan Immersion Options */}
-                  {alloc.activationBrief && (
-                    <div className="print-section-block">
-                      <h3>
-                        Suggested Activation Spec Sheet:{" "}
-                        {alloc.activationBrief.experienceTitle}
-                      </h3>
-                      <p className="print-lead-copy">
-                        {alloc.activationBrief.visitorExperience}
-                      </p>
-                      <p className="print-tags-line">
-                        <strong>Qloo Cultural & Lifestyle Signals:</strong>{" "}
-                        {alloc.activationBrief.culturalTagsUsed
-                          .map((t) => `#${t}`)
-                          .join("  ")}
-                      </p>
-
-                      <div className="print-fan-options-grid">
-                        {fanOptions.map((opt, idx) => (
-                          <div key={idx} className="print-fan-option-box">
-                            <strong>Fan Immersion Option {idx + 1}</strong>
-                            <p>{opt}</p>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="print-commercial-footer">
-                        <div>
-                          <strong>Suggested Partner Role:</strong>{" "}
-                          {alloc.activationBrief.sponsorRole}
-                        </div>
-                        <div>
-                          <strong>Commercial Verification Next Step:</strong>{" "}
-                          {alloc.unansweredCommercialQuestion}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </article>
-              );
-            })}
-          </section>
+          <PrintExecutiveDeck plan={activePlan} normalizeFit={normalizeFit} />
         )}
       </main>
     </div>
   );
 }
+

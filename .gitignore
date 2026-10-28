@@ -20,9 +20,6 @@ tmp/
 *.log
 npm-debug.log*
 
-# Raw per-run Qloo captures (the curated latest capture in fixtures/ IS committed)
-fixtures/runs/
-
 # --- OS / editor ---------------------------------------------------------
 .DS_Store
 Thumbs.db

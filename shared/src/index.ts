@@ -283,3 +283,41 @@ export interface PlanVersion {
   actionHistory: AgentActionLogEntry[];
   agentSummary: string;
 }
+
+export interface StageBenchmarkComparison {
+  stageId: string;
+  stageName: string;
+  genreLabel: string;
+  artists: string[];
+  ungroundedWinner: CandidateBrand | null;
+  ungroundedStandby: CandidateBrand | null;
+  ungroundedFitScore: number | null;
+  ungroundedRationale: string;
+  qlooWinner: CandidateBrand | null;
+  qlooStandby: CandidateBrand | null;
+  qlooFitScore: number | null;
+  qlooEvidenceCount: number;
+  qlooKeySignalSummary: string;
+  agreedOnWinner: boolean;
+  top3OverlapCount: number;
+  divergenceExplanation: string;
+}
+
+export interface BenchmarkComparisonResult {
+  festivalName: string;
+  planVersionNumber: number;
+  generatedAt: string;
+  executionMode: "gemini_live_ungrounded" | "parametric_genre_baseline";
+  metrics: {
+    qlooTraceableClaimsPct: number;
+    ungroundedTraceableClaimsPct: number;
+    stageWinnerAgreementCount: number;
+    totalStages: number;
+    meanRankOverlapPct: number;
+    qlooStageSpecificDiscoveriesCount: number;
+    solverConstraintViolationsBoth: number;
+  };
+  stageComparisons: StageBenchmarkComparison[];
+  methodologyNote: string;
+}
+

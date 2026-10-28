@@ -1,6 +1,6 @@
 {
   "name": "setfluence",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Agentic, evidence-backed festival sponsorship planning powered by Qloo cultural intelligence.",
   "license": "MIT",
@@ -14,8 +14,9 @@
     "frontend"
   ],
   "scripts": {
-    "phase0": "node scripts/phase0/run.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck --workspaces --if-present",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspace=frontend",
     "start": "npm run start --workspace=backend",
     "test": "node --test backend/src/solver/planner.test.ts backend/src/agent/orchestrator.test.ts backend/src/index.test.ts"

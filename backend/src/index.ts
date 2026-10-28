@@ -5,6 +5,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { z } from "zod";
 import type { FestivalBrief, PlanVersion } from "@setfluence/shared";
+import { runControlledBenchmark } from "./agent/benchmark.ts";
 import { AgentOrchestrator } from "./agent/orchestrator.ts";
 import { QlooApiError, QlooService } from "./services/qloo.service.ts";
 
@@ -101,6 +102,22 @@ export function buildServer(
       body.instruction,
     );
     return { plan };
+  });
+
+  app.post<{
+    Body: {
+      plan: PlanVersion;
+    };
+  }>("/api/plans/benchmark", async (request, reply) => {
+    const body = request.body;
+    if (!body?.plan || !body.plan.briefSnapshot) {
+      return reply.code(400).send({
+        error: "Request body must include a valid PlanVersion under 'plan'.",
+      });
+    }
+
+    const benchmark = await runControlledBenchmark(body.plan);
+    return { benchmark };
   });
 
   // Serve built frontend SPA assets in production when frontend/dist exists

@@ -1,4 +1,8 @@
-import type { FestivalBrief, PlanVersion } from "@setfluence/shared";
+import type {
+  BenchmarkComparisonResult,
+  FestivalBrief,
+  PlanVersion,
+} from "@setfluence/shared";
 
 interface ApiErrorPayload {
   error?: string;
@@ -56,3 +60,19 @@ export async function revisePlan(
   const data = await parseJsonResponse<{ plan: PlanVersion }>(response);
   return data.plan;
 }
+
+export async function runBenchmark(
+  plan: PlanVersion,
+): Promise<BenchmarkComparisonResult> {
+  const response = await fetch("/api/plans/benchmark", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan }),
+  });
+
+  const data = await parseJsonResponse<{
+    benchmark: BenchmarkComparisonResult;
+  }>(response);
+  return data.benchmark;
+}
+

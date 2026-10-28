@@ -6,15 +6,15 @@
 
 ## 1. Studio Walkthrough (60-Second Guide)
 
-SetFluence is designed as a four-view desktop studio with persistent left-hand stage navigation and a top version bar.
+SetFluence is designed as a desktop sponsorship studio with persistent left-hand stage navigation and version history.
 
 ### Step 1 — Choose a Scenario & Run Qloo Match
 1. In the left sidebar under **Festival Scenario**, select one of the three built-in festival briefs:
-   - **Horizon Multi-Genre Festival** (Pop, Electronic, and Indie stages with apparel exclusivity and stage-level energy drink restrictions)
-   - **Warehouse Electronic Weekend** (Techno, Bass, and Ambient stages)
-   - **Exclusivity & Lock Stress-Test** (High-contention rule stress test)
-2. Optionally open **Festival Brief & Rules** in the sidebar to inspect or customize each stage's artist lineup, physical capacity tier (`Main Headliner Arena`, `Secondary Stage`, `Intimate Tent & Lounge`), footprint (`6x6m`, `10x10m`, `15x15m`), or add rules via the structured **3-Part Commercial Rule Builder** (*Rule Type* $\to$ *Category / Brand* $\to$ *Stage or Festival Scope*).
-3. Click **Run Qloo Match** in the sidebar. SetFluence resolves the performing artists against Qloo, discovers stage-specific candidate brands for each stage's lineup, computes shortlist fit scores, and solves the optimal festival-wide sponsor allocation (`v1`).
+   - **Horizon Multi-Genre** (Indie, Electronic, and Hip-Hop/R&B stages with apparel exclusivity)
+   - **Neon Pulse Electronic** (Progressive Synth, Club, and Vinyl Chillout stages with energy drink exclusivity)
+   - **Constraint Stress-Test** (Exclusivity + stage-level category restrictions)
+2. Optionally open **Festival Brief & Rules** in the sidebar to customize stage lineups, physical capacity tiers (`Main Headliner Arena`, `Secondary Stage`, `Intimate Tent & Lounge`), footprints (`compact`, `medium`, `large`), or add rules via the structured **3-Part Commercial Rule Builder** (*Rule Type* $\to$ *Category / Brand* $\to$ *Stage or Festival Scope*).
+3. Click **Run Qloo Match** in the sidebar. SetFluence resolves the performing artists against Qloo, discovers stage-specific candidate brands for each stage's lineup, computes shortlist fit scores (`0.580–1.000 Fit`), and solves the optimal festival-wide sponsor allocation (`v1`).
 
 ### Step 2 — Inspect Stages & Run Live What-If Simulations
 Click any stage under **Stages (Focus View)** in the left sidebar to open its master-detail workspace:
@@ -29,9 +29,10 @@ Click **Brand × Stage Matrix** in the left sidebar to inspect festival-wide rou
 - **Part 1 — Cross-Stage Exclusivity & Routing Matrix:** Displays the organizer's shared target brands across all 3 stages (`WINNER`, `STANDBY`, `RULE BLOCKED`, `ELIGIBLE`), making cross-stage category exclusivity trade-offs immediately transparent.
 - **Part 2 — Stage-Tailored Qloo Brand Discoveries:** A 3-column stage grid underneath showing the candidate brands Qloo discovered specifically for each individual stage's artist lineup. Clicking any card jumps straight to that stage's head-to-head comparison.
 
-### Step 4 — Audit the Trail & Export the 3-Stage Executive Deck
+### Step 4 — Compare LLM vs. Qloo Benchmark, Audit Trail & Print 3-Stage Deck
+- **LLM vs. Qloo Benchmark:** Click **LLM vs. Qloo Benchmark** in the left sidebar to run a controlled side-by-side comparison (*Condition A: Ungrounded LLM + Deterministic Solver* vs. *Condition B: SetFluence + Qloo Cultural AI + Deterministic Solver*) on the exact same brief and candidate pool—isolating how empirical Qloo artist affinities overturn generic genre stereotypes and provide `100%` claim-to-source traceability.
 - **Qloo & Solver Audit:** Inspect the step-by-step tool execution timeline (`resolveLineup`, `discoverBrands`, `evaluateShortlistFit`, `runPlanner`, `investigateUnfilledStage`) with execution timings and version-over-version allocation diffs.
-- **Print PDF (Full 3-Stage Executive Deck) & Markdown Export:** Click **Print PDF** in the top-right bar from anywhere in the workspace to generate a formatted, multi-page **3-Stage Executive Sponsorship Deck** covering the festival summary table, active commercial rules, and dedicated page-break briefs for all 3 stages (including artist affinity tables and all 3 fan immersion options).
+- **Print PDF (Full 3-Stage Executive Deck) & Markdown Export:** Click **Print PDF** in the sidebar footer from anywhere in the workspace to generate a formatted, multi-page **3-Stage Executive Sponsorship Deck** covering the festival summary table, active commercial rules, and dedicated page-break briefs for all 3 stages.
 
 ---
 
@@ -55,28 +56,32 @@ flowchart LR
 2. **Deterministic Constraint Solver ([`backend/src/solver/planner.ts`](backend/src/solver/planner.ts) & [`constraints.ts`](backend/src/solver/constraints.ts)):**
    - All mathematical and commercial constraints—**Festival-Wide Category Exclusivity**, **Stage/Festival Category Restrictions**, **Locked Stage Placements**, **Sponsor Availability**, and **Stage Physical Envelopes**—are evaluated 100% deterministically in TypeScript. The LLM never guesses or overrides constraint math.
    - Performs global combinatorial optimization across all stages simultaneously, ensuring no brand is double-booked as primary sponsor and minimizing allocation churn during revisions.
-3. **Bounded Research & Recovery Agent ([`backend/src/agent/orchestrator.ts`](backend/src/agent/orchestrator.ts) & [`tools.ts`](backend/src/agent/tools.ts)):**
+3. **Bounded Research, Recovery & Benchmark Engine ([`backend/src/agent/orchestrator.ts`](backend/src/agent/orchestrator.ts) & [`benchmark.ts`](backend/src/agent/benchmark.ts)):**
    - Orchestrates a bounded tool loop (`maxSteps = 8`) with deterministic completion guarantees.
-   - On revisions, reuses cached Qloo evidence for instant recalculation and only triggers `investigateUnfilledStage` when a new constraint leaves a stage without an eligible partner.
+   - Includes a controlled benchmark runner (`POST /api/plans/benchmark`) that evaluates an ungrounded LLM baseline through the exact same `runPlanner` solver to prove the empirical value of Qloo grounding.
 
 ### Repository Layout
 
 ```text
-.
-├── shared/                 Shared TypeScript domain contracts (shared/src/index.ts)
-├── backend/                Fastify API, QlooService, deterministic solver, and agent loop
+setfluence/
+├── shared/                 Shared TypeScript domain contracts (@setfluence/shared)
+│   └── src/index.ts        Domain types, solver contracts & benchmark schemas
+├── backend/                Fastify API, QlooService, solver & agent (@setfluence/backend)
 │   └── src/
-│       ├── services/       Live Qloo API client, caching, and shortlist fit normalization
-│       ├── solver/         Deterministic constraint evaluation and multi-stage planner
-│       ├── agent/          Bounded tool definitions and orchestrator state machine
+│       ├── agent/          Orchestrator, bounded tools & controlled LLM benchmark runner
+│       ├── services/       Live Qloo API client, caching & shortlist fit normalization
+│       ├── solver/         Deterministic constraint evaluation & multi-stage planner
 │       └── index.ts        Fastify server (REST API + static production SPA hosting)
-├── frontend/               React 19 + Vite desktop studio UI
+├── frontend/               React 19 + Vite desktop studio UI (@setfluence/frontend)
 │   └── src/
-│       ├── components/     SponsorMatrix (2-part matrix), AgentTimeline, EvidenceDrawer
-│       ├── App.tsx         Main studio shell, stage focus view, rule builder, print deck
-│       └── styles.css      Light pastel desktop theme and @media print executive deck
-├── scripts/phase0/         Live Qloo API validation spike
-└── fixtures/               Captured Qloo responses and unit test fixtures
+│       ├── components/     SponsorMatrix, BenchmarkComparison, AgentTimeline, PrintExecutiveDeck
+│       ├── data/           Preset festival scenarios & sponsor category catalog
+│       ├── utils/          Formatters, fan activity resolver & Markdown exporter
+│       ├── api.ts          Typed backend API client
+│       ├── App.tsx         Studio workspace shell, setup view & stage focus view
+│       └── styles.css      Light pastel desktop theme & @media print executive deck
+├── Dockerfile              Multi-workspace production container
+└── render.yaml             Cloud deployment blueprint
 ```
 
 ---
@@ -120,15 +125,12 @@ Open **`http://localhost:3001`** in your browser. Fastify serves both the compil
 # Run full monorepo TypeScript contract verification (shared + backend + frontend)
 npm run typecheck
 
-# Run unit & integration test suite (Solver, Bounded Agent Loop, Fastify E2E)
+# Run unit & integration test suite (Solver, Bounded Agent Loop, Controlled Benchmark, Fastify E2E)
 npm test
 
 # Run backend or frontend dev servers individually
-npm run dev --workspace=backend
-npm run dev --workspace=frontend
-
-# Run Phase 0 live Qloo API diagnostic script
-npm run phase0
+npm run dev:backend
+npm run dev:frontend
 ```
 
 ---

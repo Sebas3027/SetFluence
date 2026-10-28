@@ -1958,6 +1958,192 @@ select:focus {
 }
 
 /* =====================================================================
+   PHASE 6: CONTROLLED LLM VS. QLOO BENCHMARK VIEW
+   ===================================================================== */
+.benchmark-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 1.15rem;
+  box-shadow: var(--shadow-xs);
+}
+
+.benchmark-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.15rem;
+}
+
+@media (max-width: 1024px) {
+  .benchmark-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.benchmark-kpi-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.benchmark-kpi-duel {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-top: 0.1rem;
+}
+
+.kpi-qloo-val {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--mint-text);
+}
+
+.kpi-primary-val {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.kpi-vs {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.kpi-ungrounded-val {
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+.benchmark-kpi-card small {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.benchmark-stages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.benchmark-stage-card {
+  margin-bottom: 0 !important;
+}
+
+.benchmark-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.benchmark-condition-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.65rem;
+}
+
+@media (max-width: 900px) {
+  .benchmark-condition-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.benchmark-condition-box {
+  border-radius: 8px;
+  padding: 0.8rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.benchmark-condition-box.condition-a {
+  background: var(--bg-elevated);
+  border: 1px dashed var(--border-strong);
+}
+
+.benchmark-condition-box.condition-b {
+  background: var(--mint-bg);
+  border: 1px solid var(--mint-border);
+}
+
+.condition-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.condition-winner-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.condition-winner-row strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.condition-cat {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.condition-fit-pill {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+}
+
+.condition-fit-pill.qloo {
+  background: var(--mint-pill);
+  border-color: var(--mint-border);
+  color: var(--mint-text);
+}
+
+.condition-rationale {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.42;
+  margin: 0;
+}
+
+.condition-footer-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.benchmark-verdict-bar {
+  margin-top: 0.75rem;
+  background: var(--sky-bg);
+  border-left: 3px solid var(--sky-bar);
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+
+/* =====================================================================
    PRINT-ONLY 3-STAGE EXECUTIVE SPONSORSHIP DECK
    ===================================================================== */
 .print-only-executive-deck {
