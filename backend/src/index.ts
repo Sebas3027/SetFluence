@@ -78,16 +78,11 @@ export function buildServer(
         });
       }
 
-      if (!body.forceRefresh) {
-        const cachedPlan = presetCache.get(body.brief);
-        if (cachedPlan) {
-          return { plan: cachedPlan, fromPresetCache: true };
-        }
-      }
-
-      const plan = await orchestrator.generateInitialPlan(body.brief);
-      presetCache.set(body.brief, plan);
-      return { plan, fromPresetCache: false };
+      return presetCache.getOrGenerate(
+        body.brief,
+        orchestrator,
+        Boolean(body.forceRefresh),
+      );
     },
   );
 

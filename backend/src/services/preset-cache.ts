@@ -6,6 +6,7 @@ import type { FestivalBrief, PlanVersion } from "@setfluence/shared";
 import type { AgentOrchestrator } from "../agent/orchestrator.ts";
 
 const CURRENT_DIR = dirname(fileURLToPath(import.meta.url));
+const RENDER_SECRET_CACHE_PATH = "/etc/secrets/preset-plans.json";
 const DEFAULT_CACHE_PATH = resolve(CURRENT_DIR, "../../../.cache/preset-plans.json");
 
 export const DEFAULT_PRESET_BRIEFS: FestivalBrief[] = [
@@ -250,6 +251,7 @@ export function computeBriefFingerprint(brief: FestivalBrief): string {
 
 export class PresetPlanCache {
   private readonly store = new Map<string, PlanVersion>();
+  private readonly inFlight = new Map<string, Promise<PlanVersion>>();
   private readonly diskPath: string | null;
 
   constructor(options: { persistToDisk?: boolean; diskPath?: string } = {}) {
@@ -259,7 +261,10 @@ export class PresetPlanCache {
         : (options.diskPath ?? DEFAULT_CACHE_PATH);
 
     if (this.diskPath) {
-      this.loadFromDisk();
+      if (this.diskPath === DEFAULT_CACHE_PATH) {
+        this.loadFileIntoStore(RENDER_SECRET_CACHE_PATH);
+      }
+      this.loadFileIntoStore(this.diskPath);
     }
   }
 
@@ -275,24 +280,57 @@ export class PresetPlanCache {
     this.saveToDisk();
   }
 
+  async getOrGenerate(
+    brief: FestivalBrief,
+    orchestrator: AgentOrchestrator,
+    forceRefresh = false,
+  ): Promise<{ plan: PlanVersion; fromPresetCache: boolean }> {
+    if (!forceRefresh) {
+      const cached = this.get(brief);
+      if (cached) {
+        return { plan: cached, fromPresetCache: true };
+      }
+    }
+
+    const key = computeBriefFingerprint(brief);
+    if (!forceRefresh) {
+      const existingPromise = this.inFlight.get(key);
+      if (existingPromise) {
+        const plan = await existingPromise;
+        return { plan: structuredClone(plan), fromPresetCache: true };
+      }
+    }
+
+    const generationPromise = orchestrator
+      .generateInitialPlan(structuredClone(brief))
+      .then((plan) => {
+        this.set(brief, plan);
+        return plan;
+      })
+      .finally(() => {
+        this.inFlight.delete(key);
+      });
+
+    this.inFlight.set(key, generationPromise);
+    const plan = await generationPromise;
+    return { plan: structuredClone(plan), fromPresetCache: false };
+  }
+
   async warmPresetsInBackground(orchestrator: AgentOrchestrator): Promise<void> {
     for (const presetBrief of DEFAULT_PRESET_BRIEFS) {
       if (this.get(presetBrief)) continue;
       try {
-        const plan = await orchestrator.generateInitialPlan(
-          structuredClone(presetBrief),
-        );
-        this.set(presetBrief, plan);
+        await this.getOrGenerate(presetBrief, orchestrator);
       } catch {
         // Non-fatal background warm-up; will retry on explicit request
       }
     }
   }
 
-  private loadFromDisk(): void {
-    if (!this.diskPath || !existsSync(this.diskPath)) return;
+  private loadFileIntoStore(filePath: string): void {
+    if (!filePath || !existsSync(filePath)) return;
     try {
-      const raw = readFileSync(this.diskPath, "utf-8");
+      const raw = readFileSync(filePath, "utf-8");
       const parsed = JSON.parse(raw) as Record<string, PlanVersion>;
       if (parsed && typeof parsed === "object") {
         for (const [k, v] of Object.entries(parsed)) {
@@ -318,5 +356,30 @@ export class PresetPlanCache {
     } catch {
       // Non-fatal
     }
+  }
+}
+
+const isDirectRun =
+  process.argv[1] &&
+  import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/"));
+
+if (isDirectRun) {
+  const cache = new PresetPlanCache({ persistToDisk: true });
+  const uncachedCount = DEFAULT_PRESET_BRIEFS.filter((b) => !cache.get(b)).length;
+
+  if (uncachedCount === 0) {
+    console.log("[preset-cache] All 3 default presets are already cached in .cache/preset-plans.json.");
+  } else if (!process.env.QLOO_API_KEY) {
+    console.log("[preset-cache] QLOO_API_KEY not set during build; skipping build-time preset warm-up.");
+  } else {
+    console.log(`[preset-cache] Baking ${uncachedCount} preset plan(s) into .cache/preset-plans.json for instant startup...`);
+    const [{ QlooService }, { AgentOrchestrator }] = await Promise.all([
+      import("./qloo.service.ts"),
+      import("../agent/orchestrator.ts"),
+    ]);
+    const qlooService = new QlooService();
+    const orchestrator = new AgentOrchestrator({ qlooService });
+    await cache.warmPresetsInBackground(orchestrator);
+    console.log("[preset-cache] Build-time preset warm-up complete.");
   }
 }

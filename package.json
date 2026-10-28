@@ -17,7 +17,7 @@
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "build": "npm run build --workspace=frontend",
+    "build": "npm run build --workspace=frontend && node --env-file-if-exists=.env backend/src/services/preset-cache.ts",
     "start": "npm run start --workspace=backend",
     "test": "node --test backend/src/solver/planner.test.ts backend/src/agent/orchestrator.test.ts backend/src/index.test.ts"
   },
