@@ -117,7 +117,7 @@ export class AgentOrchestrator {
     ).trim();
     this.geminiModel = options.geminiModel ?? "gemini-2.5-flash";
     this.maxSteps = options.maxSteps ?? 8;
-    this.maxPoolSize = options.maxPoolSize ?? 12;
+    this.maxPoolSize = options.maxPoolSize ?? 16;
     this.useLlmToolLoop =
       options.useLlmToolLoop ?? Boolean(this.geminiApiKey);
   }
@@ -218,22 +218,20 @@ export class AgentOrchestrator {
       await toolResolveLineup(ctx);
     }
 
-    // 2. Discover candidate brands on initial run so the pool combines supplied + Qloo-discovered brands
-    const hasDiscoveredBrands = ctx.candidatePool.some(
-      (b) => b.source === "discovered" || b.source === "both",
-    );
-    if (
-      mode === "initial" &&
-      !hasDiscoveredBrands &&
-      ctx.candidatePool.length < this.maxPoolSize
-    ) {
-      const stageLeadArtists = ctx.brief.stages
-        .map((s) => s.artists[0])
-        .filter((name): name is string => Boolean(name))
+    // 2. Discover up to 3 candidate brands per stage on initial run across all stage artists
+    const needsStageDiscovery = ctx.brief.stages.some((stage) => {
+      const stageDiscoveredCount = ctx.candidatePool.filter(
+        (b) => b.source === "discovered" && b.targetStageIds?.includes(stage.id),
+      ).length;
+      return stageDiscoveredCount === 0;
+    });
+    if (mode === "initial" && needsStageDiscovery) {
+      const allResolvedArtistIds = ctx.brief.stages
+        .flatMap((s) => s.artists)
         .map((name) => ctx.resolvedArtists[name]?.qlooId)
         .filter((id): id is string => Boolean(id));
 
-      await toolDiscoverBrands(ctx, stageLeadArtists, undefined);
+      await toolDiscoverBrands(ctx, allResolvedArtistIds, undefined);
     }
 
     // 3. Ensure all stage-targeted candidate brands have been evaluated for each stage's resolved artists
@@ -446,7 +444,7 @@ export class AgentOrchestrator {
           lower.includes(s.name.toLowerCase()),
       );
       const knownCategories = new Set([
-        ...ctx.brief.preferredCategories,
+        ...ctx.brief.suppliedBrands.map((b) => b.category),
         ...ctx.candidatePool.map((b) => b.category),
       ]);
       for (const cat of knownCategories) {

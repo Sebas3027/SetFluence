@@ -98,7 +98,6 @@ function makeBaseFixture() {
         artists: ["Kendrick Lamar", "SZA"],
       },
     ],
-    preferredCategories: ["footwear", "apparel", "energy_drink", "eyewear"],
     suppliedBrands: [],
     constraints: [],
   };

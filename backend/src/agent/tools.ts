@@ -182,104 +182,92 @@ export async function toolResolveLineup(
   );
 }
 
+const DISCOVERED_BRANDS_PER_STAGE = 3;
+
 /**
-  * Tool 2: discoverBrands(artistIds, category?)
-  * Queries Qloo open brand discovery from artist signals and merges new candidates into candidatePool.
-  * Tags stage-discovered brands with `targetStageIds` so each stage's leaderboard features distinct, genre-relevant discoveries
-  * alongside the cross-stage organizer-supplied brands.
-  */
+ * Tool 2: discoverBrands(artistIds, category?)
+ * Queries Qloo open brand discovery using all resolved artists on each stage together
+ * (without locking to a single category unless explicitly specified).
+ * Hard rule: Each stage discovers up to 3 new brands (`DISCOVERED_BRANDS_PER_STAGE = 3`),
+ * and overlap between stages is allowed via `targetStageIds`.
+ */
 export async function toolDiscoverBrands(
   ctx: AgentWorkspaceContext,
   artistIds: string[],
   category?: string,
 ): Promise<{ addedBrands: CandidateBrand[]; poolSize: number }> {
-  const targetArtistIds =
-    artistIds.length > 0
-      ? artistIds
-      : Object.values(ctx.resolvedArtists)
-          .map((a) => a.qlooId)
-          .filter((id): id is string => Boolean(id));
+  const requestedSet = new Set(artistIds.filter(Boolean));
+
+  const stagesToDiscover = ctx.brief.stages.filter((stage) => {
+    const resolvedOnStage = stage.artists
+      .map((name) => ctx.resolvedArtists[name]?.qlooId)
+      .filter((id): id is string => Boolean(id));
+    if (resolvedOnStage.length === 0) return false;
+    if (requestedSet.size === 0) return true;
+    return resolvedOnStage.some((id) => requestedSet.has(id));
+  });
 
   return recordToolStep(
     ctx,
     "discoverBrands",
-    `Discover stage-tailored brands from ${targetArtistIds.length} artist signal(s)${category ? ` in category "${category}"` : ""}`,
+    `Discover up to ${DISCOVERED_BRANDS_PER_STAGE} top-fit brands per stage across ${stagesToDiscover.length} stage lineup(s)${category ? ` in category "${category}"` : ""}`,
     async () => {
-      const festivalBannedCategories = new Set(
-        ctx.brief.constraints
-          .filter(
-            (c) => c.active && c.type === "category_ban" && c.scope === "festival" && c.category,
-          )
-          .map((c) => c.category!.trim().toLowerCase()),
-      );
-
-      // Map each artist Qloo ID to the stage IDs they perform on
-      const stageIdsByArtistId = new Map<string, string[]>();
-      for (const stage of ctx.brief.stages) {
-        for (const artistName of stage.artists) {
-          const qlooId = ctx.resolvedArtists[artistName]?.qlooId;
-          if (!qlooId) continue;
-          const list = stageIdsByArtistId.get(qlooId) ?? [];
-          if (!list.includes(stage.id)) list.push(stage.id);
-          stageIdsByArtistId.set(qlooId, list);
-        }
-      }
-
       const existingById = new Map(ctx.candidatePool.map((b) => [b.qlooId, b]));
       const addedBrands: CandidateBrand[] = [];
-      const perStageDiscoverQuota = Math.max(
-        2,
-        Math.ceil((ctx.maxPoolSize - ctx.brief.suppliedBrands.length) / Math.max(1, ctx.brief.stages.length)),
-      );
-      const discoveredCountByStage = new Map<string, number>();
+      let totalStageAssignments = 0;
 
-      for (let idx = 0; idx < targetArtistIds.length; idx++) {
-        const artistId = targetArtistIds[idx]!;
-        if (ctx.candidatePool.length >= ctx.maxPoolSize) break;
+      for (const stage of stagesToDiscover) {
+        const stageArtistIds = stage.artists
+          .map((name) => ctx.resolvedArtists[name]?.qlooId)
+          .filter((id): id is string => Boolean(id));
 
-        const artistStages = stageIdsByArtistId.get(artistId) ?? [];
-        const primaryStageId = artistStages[0];
+        if (stageArtistIds.length === 0) continue;
 
-        // Pick a category variation per stage if no explicit category was forced
-        const stageCategory =
-          category ??
-          ctx.brief.preferredCategories[idx % Math.max(1, ctx.brief.preferredCategories.length)];
-
+        // Query Qloo using ALL resolved artists on this stage together without locking to a single category
         const discovered = await ctx.qlooService.discoverCandidateBrands(
-          artistId,
-          stageCategory,
+          stageArtistIds,
+          category,
         );
 
+        let stageDiscoveredCount = ctx.candidatePool.filter(
+          (b) =>
+            b.source === "discovered" &&
+            b.targetStageIds?.includes(stage.id),
+        ).length;
+
         for (const candidate of discovered) {
-          if (ctx.candidatePool.length >= ctx.maxPoolSize) break;
-          if (
-            festivalBannedCategories.has(candidate.category.trim().toLowerCase())
-          ) {
+          if (stageDiscoveredCount >= DISCOVERED_BRANDS_PER_STAGE) break;
+
+          if (isCategoryBlockedOnStage(ctx.brief, stage.id, candidate.category)) {
             continue;
           }
 
           const existing = existingById.get(candidate.qlooId);
           if (existing) {
-            // If it was already discovered for another stage and that stage has room, keep it distinct per stage
-            continue;
-          }
-
-          if (primaryStageId) {
-            const currentStageCount = discoveredCountByStage.get(primaryStageId) ?? 0;
-            if (currentStageCount >= perStageDiscoverQuota && targetArtistIds.length > 1) {
+            // Do not count organizer-supplied brands toward the 3 new discoveries per stage
+            if (existing.source === "supplied") {
               continue;
             }
-            discoveredCountByStage.set(primaryStageId, currentStageCount + 1);
+            // Overlap between stages is allowed for discovered brands
+            const currentTargets = existing.targetStageIds ?? [];
+            if (!currentTargets.includes(stage.id)) {
+              existing.targetStageIds = [...currentTargets, stage.id];
+              stageDiscoveredCount++;
+              totalStageAssignments++;
+            }
+            continue;
           }
 
           const taggedCandidate: CandidateBrand = {
             ...candidate,
-            ...(artistStages.length > 0 ? { targetStageIds: artistStages } : {}),
+            targetStageIds: [stage.id],
           };
 
           existingById.set(taggedCandidate.qlooId, taggedCandidate);
           ctx.candidatePool.push(taggedCandidate);
           addedBrands.push(taggedCandidate);
+          stageDiscoveredCount++;
+          totalStageAssignments++;
         }
       }
 
@@ -288,7 +276,7 @@ export async function toolDiscoverBrands(
           addedBrands,
           poolSize: ctx.candidatePool.length,
         },
-        outputSummary: `Added ${addedBrands.length} stage-tailored discovered brand(s) (${addedBrands.map((b) => b.name).join(", ") || "none"}); candidate pool now has ${ctx.candidatePool.length} brand(s).`,
+        outputSummary: `Discovered ${addedBrands.length} unique new brand(s) (${totalStageAssignments} stage discovery slot(s) across ${stagesToDiscover.length} stage(s): ${addedBrands.map((b) => b.name).join(", ") || "shared overlap"}); candidate pool now has ${ctx.candidatePool.length} brand(s).`,
       };
     },
   );
@@ -500,36 +488,45 @@ export async function toolInvestigateUnfilledStage(
         .map((name) => ctx.resolvedArtists[name]?.qlooId)
         .filter((id): id is string => Boolean(id));
 
-      const existingIds = new Set(ctx.candidatePool.map((b) => b.qlooId));
+      const existingById = new Map(ctx.candidatePool.map((b) => [b.qlooId, b]));
       const newlyDiscovered: CandidateBrand[] = [];
 
       // Raise pool ceiling slightly during recovery so new candidates can be evaluated
       const recoveryCeiling = Math.max(ctx.maxPoolSize, ctx.candidatePool.length + 4);
 
-      const categoriesList =
-        categoriesToTry.length > 0 ? categoriesToTry : [undefined];
+      const categoriesList: Array<string | undefined> =
+        categoriesToTry.length > 0 ? [undefined, ...categoriesToTry] : [undefined];
 
       for (const category of categoriesList) {
-        for (const artistId of stageArtistIds) {
+        if (ctx.candidatePool.length >= recoveryCeiling || stageArtistIds.length === 0) break;
+        const discovered = await ctx.qlooService.discoverCandidateBrands(
+          stageArtistIds,
+          category,
+        );
+        for (const brand of discovered) {
           if (ctx.candidatePool.length >= recoveryCeiling) break;
-          const discovered = await ctx.qlooService.discoverCandidateBrands(
-            artistId,
-            category,
-          );
-          for (const brand of discovered) {
-            if (ctx.candidatePool.length >= recoveryCeiling) break;
-            if (existingIds.has(brand.qlooId)) continue;
-            if (isCategoryBlockedOnStage(ctx.brief, stageId, brand.category)) {
-              continue;
-            }
-            const taggedBrand: CandidateBrand = {
-              ...brand,
-              targetStageIds: [stageId],
-            };
-            existingIds.add(taggedBrand.qlooId);
-            ctx.candidatePool.push(taggedBrand);
-            newlyDiscovered.push(taggedBrand);
+          if (isCategoryBlockedOnStage(ctx.brief, stageId, brand.category)) {
+            continue;
           }
+          const existing = existingById.get(brand.qlooId);
+          if (existing) {
+            if (
+              existing.source === "discovered" &&
+              existing.available &&
+              !existing.targetStageIds?.includes(stageId)
+            ) {
+              existing.targetStageIds = [...(existing.targetStageIds ?? []), stageId];
+              newlyDiscovered.push(existing);
+            }
+            continue;
+          }
+          const taggedBrand: CandidateBrand = {
+            ...brand,
+            targetStageIds: [stageId],
+          };
+          existingById.set(taggedBrand.qlooId, taggedBrand);
+          ctx.candidatePool.push(taggedBrand);
+          newlyDiscovered.push(taggedBrand);
         }
       }
 
@@ -625,6 +622,18 @@ function isCategoryBlockedOnStage(
   );
 }
 
+const STANDARD_SPONSOR_CATEGORIES = [
+  "footwear",
+  "apparel",
+  "energy_drink",
+  "streaming",
+  "eyewear",
+  "consumer_electronics",
+  "audio_gear",
+  "outdoor",
+  "beverage",
+];
+
 export function deriveAllowedCategoriesForStage(
   brief: FestivalBrief,
   stageId: string,
@@ -651,7 +660,7 @@ export function deriveAllowedCategoriesForStage(
     }
   }
 
-  return brief.preferredCategories.filter((cat) => {
+  return STANDARD_SPONSOR_CATEGORIES.filter((cat) => {
     const norm = cat.trim().toLowerCase();
     return (
       !isCategoryBlockedOnStage(brief, stageId, norm) &&

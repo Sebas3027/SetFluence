@@ -132,7 +132,6 @@ describe("Phase 4 End-to-End Fastify API & Static SPA Server", () => {
           artists: ["Kendrick Lamar", "SZA"],
         },
       ],
-      preferredCategories: ["footwear", "apparel", "energy_drink", "eyewear"],
       suppliedBrands: [
         { name: "Converse", category: "footwear" },
         { name: "Nike", category: "apparel" },

@@ -159,7 +159,6 @@ export interface FestivalBrief {
   name: string;
   location: string;
   stages: StageBrief[];
-  preferredCategories: string[];
   suppliedBrands: SuppliedBrandInput[];
   constraints: Constraint[];
 }

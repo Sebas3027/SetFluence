@@ -69,14 +69,6 @@ export const PRESET_BRIEFS: PresetBriefOption[] = [
           },
         },
       ],
-      preferredCategories: [
-        "footwear",
-        "apparel",
-        "energy_drink",
-        "streaming",
-        "eyewear",
-        "consumer_electronics",
-      ],
       suppliedBrands: [
         { name: "Converse", category: "footwear", available: true },
         { name: "Nike", category: "apparel", available: true },
@@ -144,13 +136,6 @@ export const PRESET_BRIEFS: PresetBriefOption[] = [
             stageTier: "intimate_tent",
           },
         },
-      ],
-      preferredCategories: [
-        "energy_drink",
-        "streaming",
-        "consumer_electronics",
-        "footwear",
-        "eyewear",
       ],
       suppliedBrands: [
         { name: "Red Bull", category: "energy_drink", available: true },
@@ -220,13 +205,6 @@ export const PRESET_BRIEFS: PresetBriefOption[] = [
             stageTier: "intimate_tent",
           },
         },
-      ],
-      preferredCategories: [
-        "footwear",
-        "apparel",
-        "energy_drink",
-        "streaming",
-        "eyewear",
       ],
       suppliedBrands: [
         { name: "Nike", category: "apparel", available: true },

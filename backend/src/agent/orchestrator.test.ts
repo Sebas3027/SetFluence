@@ -81,7 +81,7 @@ class StubQlooService extends QlooService {
   }
 
   override async discoverCandidateBrands(
-    _artistId: string,
+    _artistIds: string | string[],
     category?: string,
   ): Promise<CandidateBrand[]> {
     this.discoverCalls++;
@@ -235,7 +235,6 @@ function makeTestBrief(): FestivalBrief {
         },
       },
     ],
-    preferredCategories: ["footwear", "energy_drink", "apparel", "streaming"],
     suppliedBrands: [
       { name: "Converse", category: "footwear" },
       { name: "Red Bull", category: "energy_drink" },
@@ -325,7 +324,6 @@ describe("Phase 3 Bounded Agent Research & Recovery Loop", () => {
     // Ban all existing non-allocated categories on Stage 2 and mark Red Bull unavailable,
     // leaving only "audio_gear" allowed on Stage 2 (which is not in the pool yet!)
     const updatedBrief = structuredClone(v1.briefSnapshot);
-    updatedBrief.preferredCategories = ["audio_gear"];
     updatedBrief.constraints.push(
       {
         id: "unavail-rb",

@@ -133,6 +133,40 @@ export const normalizeEntityName = (name: string): string =>
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
+export function inferBrandCategoryFromQlooTags(
+  tags: Array<{ id: string; name: string }>,
+  explicitCategory?: string,
+): string {
+  if (explicitCategory && explicitCategory.trim().length > 0) {
+    return explicitCategory.trim().toLowerCase();
+  }
+  const combined = tags.map((t) => t.name.toLowerCase()).join(" ");
+  if (/\b(footwear|shoe|sneaker|boot)\b/.test(combined)) return "footwear";
+  if (/\b(apparel|clothing|fashion|streetwear|sportswear|activewear|luxury)\b/.test(combined)) {
+    return "apparel";
+  }
+  if (/\b(energy drink|energy)\b/.test(combined)) return "energy_drink";
+  if (/\b(alcohol|beer|spirits|wine|liquor|brewery)\b/.test(combined)) return "alcohol";
+  if (/\b(beverage|drink|soda|coffee|tea|water)\b/.test(combined)) return "beverage";
+  if (/\b(streaming|music service|podcast)\b/.test(combined)) return "streaming";
+  if (/\b(eyewear|sunglasses|glasses|optical)\b/.test(combined)) return "eyewear";
+  if (/\b(audio|headphone|speaker|synthesizer|dj|sound|instrument)\b/.test(combined)) {
+    return "audio_gear";
+  }
+  if (/\b(electronics|tech|software|computer|phone|mobile|gaming|console)\b/.test(combined)) {
+    return "consumer_electronics";
+  }
+  if (/\b(outdoor|camping|hiking|adventure)\b/.test(combined)) return "outdoor";
+  if (/\b(automotive|car|vehicle|motor)\b/.test(combined)) return "automotive";
+
+  const firstTag = tags[0]?.name
+    ?.trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+  return firstTag || "lifestyle";
+}
+
 /**
  * Computes positive shortlist fit points in (0.50, 1.00] for a shortlist ranking of returned candidates.
  * Uses a positive rank floor (0.55..1.00) blended with Qloo's raw affinity when present so that
@@ -303,12 +337,18 @@ export class QlooService {
 
   /**
    * Open candidate discovery: queries GET /v2/insights for brand entities
-   * given an artist signal and optional category tag filter.
+   * given one or more artist signals (e.g., all 3 artists on a stage) and optional category tag filter.
    */
   async discoverCandidateBrands(
-    artistId: string,
+    artistIds: string | string[],
     category?: string,
   ): Promise<CandidateBrand[]> {
+    const signalEntities = Array.isArray(artistIds)
+      ? artistIds.filter(Boolean).join(",")
+      : artistIds.trim();
+
+    if (!signalEntities) return [];
+
     let filterTagId: string | undefined;
     if (category && category.trim().length > 0) {
       const matchedTags = await this.lookupTagsByKeyword(category.trim(), "urn:entity:brand");
@@ -319,9 +359,9 @@ export class QlooService {
 
     const rawParams: BrandInsightsParams = {
       "filter.type": "urn:entity:brand",
-      "signal.interests.entities": artistId,
+      "signal.interests.entities": signalEntities,
       ...(filterTagId ? { "filter.tags": filterTagId } : {}),
-      take: 20,
+      take: 25,
     };
 
     const validatedParams = BrandInsightsParamsSchema.parse(rawParams);
@@ -331,7 +371,7 @@ export class QlooService {
     return entities.map((entity) => ({
       qlooId: entity.id,
       name: entity.name,
-      category: category ?? entity.tags[0]?.name ?? "unclassified",
+      category: inferBrandCategoryFromQlooTags(entity.tags, category),
       source: "discovered",
       available: true,
       popularity: entity.popularity,

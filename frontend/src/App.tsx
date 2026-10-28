@@ -59,7 +59,6 @@ export function App() {
   const availableCategories = Array.from(
     new Set([
       ...KNOWN_SPONSOR_CATEGORIES,
-      ...brief.preferredCategories,
       ...brief.suppliedBrands.map((b) => b.category),
     ]),
   );
@@ -1483,15 +1482,36 @@ export function App() {
                             </h3>
                           </div>
 
-                          {netMargin !== null && (
-                            <div className="net-margin-pill">
-                              <span>Net Stage Lead:</span>
-                              <strong>
-                                {netMargin >= 0 ? "+" : ""}
-                                {netMargin.toFixed(3)} Fit
-                              </strong>
-                            </div>
-                          )}
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                            {netMargin !== null && (
+                              <div className="net-margin-pill">
+                                <span>Net Stage Lead:</span>
+                                <strong>
+                                  {netMargin >= 0 ? "+" : ""}
+                                  {netMargin.toFixed(3)} Fit
+                                </strong>
+                              </div>
+                            )}
+
+                            {comparedBrand &&
+                              comparedBrand.qlooId !== primarySponsor?.qlooId && (
+                                <button
+                                  type="button"
+                                  className="btn-action no-print"
+                                  disabled={loading}
+                                  onClick={() =>
+                                    handleToggleStageLock(
+                                      activeStageBrief.id,
+                                      activeStageBrief.name,
+                                      comparedBrand.qlooId,
+                                      comparedBrand.name,
+                                    )
+                                  }
+                                >
+                                  Lock {comparedBrand.name} to {activeStageBrief.name}
+                                </button>
+                              )}
+                          </div>
                         </div>
 
                         <div className="callout-highlight-banner">
@@ -1505,7 +1525,7 @@ export function App() {
                           across this stage's{" "}
                           <strong>{stageBrandRows.length} evaluated brands</strong>
                           . Select any brand in the right-hand leaderboard to
-                          switch the challenger.
+                          switch the challenger or lock it to this stage.
                         </div>
 
                         <div className="artist-duel-rows">
@@ -1783,12 +1803,25 @@ export function App() {
                       }
 
                       return (
-                        <button
+                        <div
                           key={row.brand.qlooId}
-                          type="button"
+                          role="button"
+                          tabIndex={0}
                           className={`leaderboard-item ${row.isWinner ? "is-winner" : ""} ${isCompared ? "is-compared" : ""} ${row.effectiveBlockReason ? "is-blocked" : ""}`}
                           onClick={() => {
                             if (!row.isWinner) {
+                              setComparedBrandByStage((prev) => ({
+                                ...prev,
+                                [activeStageBrief.id]: row.brand.qlooId,
+                              }));
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (
+                              (e.key === "Enter" || e.key === " ") &&
+                              !row.isWinner
+                            ) {
+                              e.preventDefault();
                               setComparedBrandByStage((prev) => ({
                                 ...prev,
                                 [activeStageBrief.id]: row.brand.qlooId,
@@ -1842,11 +1875,37 @@ export function App() {
                           )}
 
                           {isCompared && (
-                            <div className="comparing-active-tag">
-                              Comparing against {primarySponsor?.name}
+                            <div
+                              className="comparing-active-tag"
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "0.5rem",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <span>Comparing against {primarySponsor?.name}</span>
+                              <button
+                                type="button"
+                                className="btn-action"
+                                style={{ padding: "0.24rem 0.55rem", fontSize: "0.74rem" }}
+                                disabled={loading}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleStageLock(
+                                    activeStageBrief.id,
+                                    activeStageBrief.name,
+                                    row.brand.qlooId,
+                                    row.brand.name,
+                                  );
+                                }}
+                              >
+                                Lock {row.brand.name} to Stage
+                              </button>
                             </div>
                           )}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
