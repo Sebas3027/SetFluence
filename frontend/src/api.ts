@@ -29,11 +29,17 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   return parsed as T;
 }
 
-export async function generatePlan(brief: FestivalBrief): Promise<PlanVersion> {
+export async function generatePlan(
+  brief: FestivalBrief,
+  options?: { forceRefresh?: boolean },
+): Promise<PlanVersion> {
   const response = await fetch("/api/plans/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ brief }),
+    body: JSON.stringify({
+      brief,
+      ...(options?.forceRefresh ? { forceRefresh: true } : {}),
+    }),
   });
 
   const data = await parseJsonResponse<{ plan: PlanVersion }>(response);

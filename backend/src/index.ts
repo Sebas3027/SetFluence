@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { FestivalBrief, PlanVersion } from "@setfluence/shared";
 import { runControlledBenchmark } from "./agent/benchmark.ts";
 import { AgentOrchestrator } from "./agent/orchestrator.ts";
+import { PresetPlanCache } from "./services/preset-cache.ts";
 import { QlooApiError, QlooService } from "./services/qloo.service.ts";
 
 const CURRENT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,7 @@ const MIME_TYPES: Record<string, string> = {
 export function buildServer(
   qlooService = new QlooService(),
   orchestrator = new AgentOrchestrator({ qlooService }),
+  presetCache = new PresetPlanCache({ persistToDisk: false }),
 ) {
   const app = Fastify({
     logger: true,
@@ -66,7 +68,7 @@ export function buildServer(
     return { entities };
   });
 
-  app.post<{ Body: { brief: FestivalBrief } }>(
+  app.post<{ Body: { brief: FestivalBrief; forceRefresh?: boolean } }>(
     "/api/plans/generate",
     async (request, reply) => {
       const body = request.body;
@@ -76,8 +78,16 @@ export function buildServer(
         });
       }
 
+      if (!body.forceRefresh) {
+        const cachedPlan = presetCache.get(body.brief);
+        if (cachedPlan) {
+          return { plan: cachedPlan, fromPresetCache: true };
+        }
+      }
+
       const plan = await orchestrator.generateInitialPlan(body.brief);
-      return { plan };
+      presetCache.set(body.brief, plan);
+      return { plan, fromPresetCache: false };
     },
   );
 
@@ -179,9 +189,17 @@ const isDirectRun =
 
 if (isDirectRun) {
   const port = Number(process.env.PORT ?? 3001);
-  const server = buildServer();
-  server.listen({ port, host: "0.0.0.0" }).catch((err) => {
-    server.log.error(err);
-    process.exit(1);
-  });
+  const qlooService = new QlooService();
+  const orchestrator = new AgentOrchestrator({ qlooService });
+  const presetCache = new PresetPlanCache({ persistToDisk: true });
+  const server = buildServer(qlooService, orchestrator, presetCache);
+  server
+    .listen({ port, host: "0.0.0.0" })
+    .then(() => {
+      void presetCache.warmPresetsInBackground(orchestrator);
+    })
+    .catch((err) => {
+      server.log.error(err);
+      process.exit(1);
+    });
 }

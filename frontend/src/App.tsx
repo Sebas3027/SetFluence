@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   Constraint,
   ConstraintType,
@@ -63,30 +63,40 @@ export function App() {
     ]),
   );
 
+  // Auto-load the initial preset on first mount so judges land directly on a populated plan
+  useEffect(() => {
+    void handleGenerateInitialPlan(PRESET_BRIEFS[0]!.brief, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleSelectPreset(presetId: string) {
     const found = PRESET_BRIEFS.find((p) => p.id === presetId);
     if (!found) return;
-    setBrief(structuredClone(found.brief));
+    const clonedBrief = structuredClone(found.brief);
+    setBrief(clonedBrief);
     setPlanHistory([]);
     setActiveVersionIdx(0);
-    setActiveView("setup");
-    setSelectedStageId(found.brief.stages[0]?.id ?? "stage-1");
+    setSelectedStageId(clonedBrief.stages[0]?.id ?? "stage-1");
     setComparedBrandByStage({});
     setHasUnappliedSetupEdits(false);
     setErrorMessage(null);
+    void handleGenerateInitialPlan(clonedBrief, false);
   }
 
-  async function handleGenerateInitialPlan() {
+  async function handleGenerateInitialPlan(
+    targetBrief: FestivalBrief = brief,
+    forceRefresh = false,
+  ) {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const plan = await generatePlan(brief);
+      const plan = await generatePlan(targetBrief, { forceRefresh });
       setPlanHistory([plan]);
       setActiveVersionIdx(0);
       setBrief(plan.briefSnapshot);
       setSelectedStageId(plan.briefSnapshot.stages[0]?.id ?? "stage-1");
       setHasUnappliedSetupEdits(false);
-      setActiveView("stage");
+      setActiveView((prev) => (prev === "setup" ? "stage" : prev));
     } catch (err) {
       setErrorMessage(
         err instanceof Error
@@ -627,7 +637,7 @@ export function App() {
             type="button"
             className="btn-primary full-width sidebar-run-btn"
             disabled={loading}
-            onClick={() => void handleGenerateInitialPlan()}
+            onClick={() => void handleGenerateInitialPlan(brief, Boolean(activePlan))}
           >
             {loading
               ? "Running Qloo & Solver..."
@@ -1333,6 +1343,64 @@ export function App() {
                     </div>
                   </div>
 
+                  {/* Autonomous Agent Revision & Recovery Banner (visible when plan is revised via simulation or rule updates) */}
+                  {activePlan.versionNumber > 1 && (
+                    <div className="agent-recovery-banner no-print">
+                      <div className="agent-recovery-top">
+                        <div className="agent-recovery-badges">
+                          <span className="pastel-badge badge-mint">
+                            AUTONOMOUS AGENT REVISION (v{activePlan.versionNumber - 1} → v{activePlan.versionNumber})
+                          </span>
+                          <span className="pastel-badge badge-sky">
+                            {activePlan.actionHistory.some(
+                              (a) => a.tool === "investigateUnfilledStage",
+                            )
+                              ? "Qloo Unfilled-Stage Discovery Triggered"
+                              : "Instant In-Pool Solver Re-Routing"}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-link-inline"
+                          onClick={() => setActiveView("audit")}
+                        >
+                          View Full Agent Trace →
+                        </button>
+                      </div>
+
+                      {activePlan.diffLog.length > 0 ? (
+                        <div className="agent-recovery-diffs">
+                          {activePlan.diffLog.map((diff, idx) => {
+                            const stageName =
+                              activePlan.briefSnapshot.stages.find(
+                                (s) => s.id === diff.stageId,
+                              )?.name ?? diff.stageId;
+                            return (
+                              <div
+                                key={`${diff.stageId}-${idx}`}
+                                className={`agent-recovery-diff-item ${diff.stageId === activeStageBrief.id ? "is-active-stage" : ""}`}
+                              >
+                                <strong>{stageName}:</strong>{" "}
+                                <span className="diff-prev">
+                                  {diff.previousValue ?? "None"}
+                                </span>{" "}
+                                →{" "}
+                                <strong className="diff-next">
+                                  {diff.nextValue ?? "Unfilled"}
+                                </strong>{" "}
+                                <span className="diff-reason">({diff.reason})</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="agent-recovery-summary">
+                          {activePlan.agentSummary}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* 2. Winning Partner & Deal Action Bar (Pastel Sage Mint) */}
                   {activeStageAllocation && (
                     <div
@@ -1661,8 +1729,8 @@ export function App() {
 
                       <p className="muted-text">
                         Exploratory creative starting points grounded in{" "}
-                        <strong>{activeStageBrief.name}</strong>'s Qloo cultural
-                        tags and physical stage envelope.
+                        <strong>{activeStageBrief.name}</strong>'s Qloo cross-domain
+                        cultural graph and physical stage envelope.
                       </p>
 
                       <div className="spec-sheet-grid">
@@ -1717,6 +1785,36 @@ export function App() {
                             )}
                           </div>
                         </div>
+
+                        {activeStageAllocation.activationBrief
+                          .crossDomainTouchstones &&
+                          activeStageAllocation.activationBrief
+                            .crossDomainTouchstones.length > 0 && (
+                            <div className="spec-field-box spec-field-full">
+                              <span className="small-caps-label">
+                                QLOO CROSS-DOMAIN TASTE GRAPH TOUCHSTONES (FILM · TV · GAMING · CULTURE)
+                              </span>
+                              <div className="cross-domain-touchstone-grid">
+                                {activeStageAllocation.activationBrief.crossDomainTouchstones.map(
+                                  (ts) => (
+                                    <div key={ts.id} className="touchstone-chip">
+                                      <span className="touchstone-domain-badge">
+                                        {ts.domain.replace("_", " ").toUpperCase()}
+                                      </span>
+                                      <strong className="touchstone-name">
+                                        {ts.name}
+                                      </strong>
+                                      {ts.affinityScore !== null && (
+                                        <span className="touchstone-affinity">
+                                          {Math.round(ts.affinityScore * 100)}% Affinity
+                                        </span>
+                                      )}
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            </div>
+                          )}
 
                         <div className="spec-field-box spec-field-full">
                           <span className="small-caps-label">
