@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type {
   Constraint,
   ConstraintType,
@@ -63,12 +63,6 @@ export function App() {
     ]),
   );
 
-  // Auto-load the initial preset on first mount so judges land directly on a populated plan
-  useEffect(() => {
-    void handleGenerateInitialPlan(PRESET_BRIEFS[0]!.brief, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   function handleSelectPreset(presetId: string) {
     const found = PRESET_BRIEFS.find((p) => p.id === presetId);
     if (!found) return;
@@ -76,11 +70,11 @@ export function App() {
     setBrief(clonedBrief);
     setPlanHistory([]);
     setActiveVersionIdx(0);
+    setActiveView("setup");
     setSelectedStageId(clonedBrief.stages[0]?.id ?? "stage-1");
     setComparedBrandByStage({});
     setHasUnappliedSetupEdits(false);
     setErrorMessage(null);
-    void handleGenerateInitialPlan(clonedBrief, false);
   }
 
   async function handleGenerateInitialPlan(
